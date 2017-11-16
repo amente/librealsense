@@ -29,9 +29,8 @@ namespace librealsense
     public:
         explicit ros_writer(const std::string& file) : m_file_path(file)
         {
-            m_bag.open(file, rosbag::BagMode::Write);
-            m_bag.setCompression(rosbag::CompressionType::LZ4);
-            write_file_version();
+			m_file_name_base = file;
+			start_new_file_write();
         }
 
         void write_device_description(const librealsense::device_snapshot& device_description) override
@@ -85,6 +84,15 @@ namespace librealsense
         {
             return m_file_path;
         }
+
+		void create_part_file(uint32_t& part_number)
+		{
+			std:size_t extension_pos = m_file_name_base.rfind(".bag");
+			m_file_path = m_file_name_base.substr(0, extension_pos) + "_part_" + std::to_string(part_number) + ".bag";
+			// Finalize the current file 
+			m_bag.close();
+			start_new_file_write();
+		}
 
     private:
         void write_file_version()
@@ -353,8 +361,16 @@ namespace librealsense
             return (*reinterpret_cast<char*>(&num) == 1) ? 0 : 1; //Little Endian: (char)0x0001 => 0x01, Big Endian: (char)0x0001 => 0x00,
         }
 
+		void start_new_file_write()
+		{
+			m_bag.open(m_file_path, rosbag::BagMode::Write);
+			// m_bag.setCompression(rosbag::CompressionType::LZ4);
+			write_file_version();
+		}
+
         std::map<stream_identifier, geometry_msgs::Transform> m_extrinsics_msgs;
         std::string m_file_path;
+		std::string m_file_name_base;
         rosbag::Bag m_bag;
         std::map<uint32_t, std::set<rs2_option>> m_written_options_descriptions;
     };

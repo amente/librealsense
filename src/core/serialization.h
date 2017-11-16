@@ -290,7 +290,8 @@ namespace librealsense
             virtual void write_frame(const stream_identifier& stream_id, const nanoseconds& timestamp, frame_holder&& frame) = 0;
             virtual void write_snapshot(uint32_t device_index, const nanoseconds& timestamp, rs2_extension type, const std::shared_ptr<extension_snapshot>& snapshot) = 0;
             virtual void write_snapshot(const sensor_identifier& sensor_id, const nanoseconds& timestamp, rs2_extension type, const std::shared_ptr<extension_snapshot>& snapshot) = 0;
-            virtual const std::string& get_file_name() const = 0;
+			virtual void create_part_file(uint32_t& part_file_no) = 0;
+			virtual const std::string& get_file_name() const = 0;
             virtual ~writer() = default;
         };
 

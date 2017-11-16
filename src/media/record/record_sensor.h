@@ -41,6 +41,8 @@ namespace librealsense
         bool is_streaming() const override;
         bool extend_to(rs2_extension extension_type, void** ext) override;
         const device_interface& get_device() override;
+		snapshot_callback_t m_device_record_snapshot_handler;
+		stream_profiles requested_profiles_at_open;
         
     private /*methods*/:
         void raise_user_notification(const std::string& str);
@@ -50,7 +52,7 @@ namespace librealsense
         void record_frame(frame_holder holder);
         
     private /*members*/:
-        snapshot_callback_t m_device_record_snapshot_handler;
+        //snapshot_callback_t m_device_record_snapshot_handler;
         sensor_interface& m_sensor;
         std::set<rs2_option> m_recording_options;
         librealsense::notifications_callback_ptr m_user_notification_callback;

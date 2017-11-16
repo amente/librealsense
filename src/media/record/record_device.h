@@ -19,6 +19,7 @@ namespace librealsense
     {
     public:
         static const uint64_t MAX_CACHED_DATA_SIZE = 1920 * 1080 * 4 * 30; // ~1 sec of HD video @ 30 FPS
+		static const uint32_t PART_FILE_SIZE_SEC = 30; //  30 seconds of video
 
         record_device(std::shared_ptr<device_interface> device, std::shared_ptr<device_serializer::writer> serializer);
         virtual ~record_device();
@@ -47,6 +48,7 @@ namespace librealsense
         template <rs2_extension E, typename P> bool extend_to_aux(std::shared_ptr<P> p, void** ext);
 
         void write_header();
+		void trigger_sensor_snapshot_write();
         std::chrono::nanoseconds get_capture_time() const;
         void write_data(size_t sensor_index, frame_holder f, std::function<void(std::string const&)> on_error);
         void write_sensor_extension_snapshot(size_t sensor_index, rs2_extension ext, const std::shared_ptr<extension_snapshot>& snapshot, std::function<void(std::string const&)> on_error);
@@ -67,6 +69,7 @@ namespace librealsense
         bool m_is_recording;
         std::once_flag m_first_frame_flag;
 
+		uint32_t m_part_file_no;
         uint64_t m_cached_data_size;
         std::once_flag m_first_call_flag;
         void initialize_recording();

@@ -35,6 +35,11 @@ namespace librealsense
             {
                 reset(); //Note: calling a virtual function inside c'tor, safe while base function is pure virtual
                 m_total_duration = get_file_duration(m_file);
+				/*//If it is a part file offset the total duration
+				if (file.find("_part_") != std::string::npos)
+				{
+					
+				}*/
             }
             catch (const std::exception& e)
             {
@@ -256,7 +261,7 @@ namespace librealsense
         static nanoseconds get_file_duration(const rosbag::Bag& file)
         {
             rosbag::View all_frames_view(file, FrameQuery());
-            auto streaming_duration = all_frames_view.getEndTime() - all_frames_view.getBeginTime();
+			auto streaming_duration = all_frames_view.getEndTime();// -all_frames_view.getBeginTime();
             return nanoseconds(streaming_duration.toNSec());
         }
 

@@ -36,6 +36,7 @@ stream_profiles record_sensor::get_stream_profiles() const
 
 void librealsense::record_sensor::open(const stream_profiles& requests)
 {
+	requested_profiles_at_open = requests;
     m_sensor.open(requests);
 
     m_is_recording = true;

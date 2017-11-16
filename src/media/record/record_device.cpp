@@ -95,6 +95,24 @@ void librealsense::record_device::write_header()
     m_ros_writer->write_device_description({ device_extensions_md, sensors_snapshot, {/*extrinsics are written by ros_writer*/} });
 }
 
+void librealsense::record_device::trigger_sensor_snapshot_write()
+{
+	std::vector<sensor_snapshot> sensors_snapshot;
+	for (size_t j = 0; j < m_device->get_sensors_count(); ++j)
+	{
+		auto& sensor = *(m_sensors.at(j));
+		stream_profiles requests = sensor.requested_profiles_at_open;
+		for (auto request : requests)
+		{
+			std::shared_ptr<stream_profile_interface> snapshot;
+			request->create_snapshot(snapshot);
+			//TODO: handle non video profiles
+			//write_sensor_extension_snapshot(j, RS2_EXTENSION_VIDEO_PROFILE, std::dynamic_pointer_cast<extension_snapshot>(snapshot), [this](const std::string& err) { /*stop_gracefully(err);*/ });
+			sensor.m_device_record_snapshot_handler(RS2_EXTENSION_VIDEO_PROFILE, std::dynamic_pointer_cast<extension_snapshot>(snapshot), [this](const std::string& err) { /*stop_with_error(err);*/ });
+		}		
+	}
+}
+
 //Returns the time relative to beginning of the recording
 std::chrono::nanoseconds librealsense::record_device::get_capture_time() const
 {
@@ -128,6 +146,7 @@ void librealsense::record_device::write_data(size_t sensor_index, librealsense::
 
     m_cached_data_size = cached_data_size;
     auto capture_time = get_capture_time();
+
     //TODO: remove usage of shared pointer when frame_holder is copyable
     auto frame_holder_ptr = std::make_shared<frame_holder>();
     *frame_holder_ptr = std::move(frame);
@@ -156,6 +175,15 @@ void librealsense::record_device::write_data(size_t sensor_index, librealsense::
             auto stream_index = static_cast<uint32_t>(frame_holder_ptr->frame->get_stream()->get_stream_index());
             m_ros_writer->write_frame({ device_index, static_cast<uint32_t>(sensor_index), stream_type, stream_index }, capture_time, std::move(*frame_holder_ptr));
             //TODO: restore: std::lock_guard<std::mutex> locker(m_mutex);  m_cached_data_size -= data_size;
+			
+			auto capture_time_sec = std::chrono::duration_cast<std::chrono::duration<float>>(capture_time);
+			if (capture_time_sec.count() > (m_part_file_no + 1) * PART_FILE_SIZE_SEC)
+			{
+				m_part_file_no++;
+				m_ros_writer->create_part_file(m_part_file_no);
+				write_header();
+				trigger_sensor_snapshot_write();
+			}
         }
         catch(std::exception& e)
         {
@@ -401,6 +429,7 @@ void record_device::initialize_recording()
     //Expected to be called once when recording to file actually starts
     m_capture_time_base = std::chrono::high_resolution_clock::now();
     m_cached_data_size = 0;
+	m_part_file_no = 0;
 }
 void record_device::stop_gracefully(to_string error_msg)
 {
