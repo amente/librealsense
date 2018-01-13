@@ -193,7 +193,7 @@ void refresh_devices(std::mutex& m,
 
 int main(int argv, const char** argc) try
 {
-    ux_window window("Intel RealSense Viewer");
+    ux_window window("Intel RealSense Viewer(NICU Custom)");
 
     // Create RealSense Context
     context ctx;
@@ -425,119 +425,123 @@ int main(int argv, const char** argc) try
                 ImGui::GetWindowDrawList()->AddRectFilled(bb.GetTL(), bb.GetBR(), ImColor(dark_window_background));
             }
 
-            for (auto&& dev_model : device_models)
-            {
-                bool stop_recording = false;
-                for (auto&& sub : dev_model.subdevices)
-                {
-                    try
-                    {
-                        ImGui::SetCursorPos({ windows_width - 35, model_to_y[sub.get()] + 3 });
-                        ImGui::PushFont(window.get_font());
+			for (auto&& dev_model : device_models)
+			{
+				if (!dev_model.is_recording)
+				{
+					bool stop_recording = false;
+					for (auto&& sub : dev_model.subdevices)
+					{
+						try
+						{
+							ImGui::SetCursorPos({ windows_width - 35, model_to_y[sub.get()] + 3 });
+							ImGui::PushFont(window.get_font());
 
-                        ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
-                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
-                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, sensor_bg);
+							ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
+							ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
+							ImGui::PushStyleColor(ImGuiCol_ButtonActive, sensor_bg);
 
-                        if (!sub->streaming)
-                        {
-                            label = to_string() << u8"  \uf204\noff   ##" << dev_model.id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME);
+							if (!sub->streaming)
+							{
+								label = to_string() << u8"  \uf204\noff   ##" << dev_model.id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME);
 
-                            ImGui::PushStyleColor(ImGuiCol_Text, redish);
-                            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
+								ImGui::PushStyleColor(ImGuiCol_Text, redish);
+								ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
 
-                            if (sub->is_selected_combination_supported())
-                            {
-                                if (ImGui::Button(label.c_str(), { 30,30 }))
-                                {
-                                    auto profiles = sub->get_selected_profiles();
-                                    sub->play(profiles);
+								if (sub->is_selected_combination_supported())
+								{
+									if (ImGui::Button(label.c_str(), { 30,30 }))
+									{
+										auto profiles = sub->get_selected_profiles();
+										sub->play(profiles);
 
-                                    for (auto&& profile : profiles)
-                                    {
-                                        viewer_model.streams[profile.unique_id()].begin_stream(sub, profile);
-                                    }
-                                }
-                                if (ImGui::IsItemHovered())
-                                {
-                                    ImGui::SetTooltip("Start streaming data from this sensor");
-                                }
-                            }
-                            else
-                            {
-                                ImGui::TextDisabled(u8"  \uf204\noff   ");
-                                if (std::any_of(sub->stream_enabled.begin(), sub->stream_enabled.end(), [](std::pair<int, bool> const& s) { return s.second; }))
-                                {
-                                    if (ImGui::IsItemHovered())
-                                    {
-                                        ImGui::SetTooltip("Selected configuration (FPS, Resolution) is not supported");
-                                    }
-                                }
-                                else
-                                {
-                                    if (ImGui::IsItemHovered())
-                                    {
-                                        ImGui::SetTooltip("No stream selected");
-                                    }
-                                }
+										for (auto&& profile : profiles)
+										{
+											viewer_model.streams[profile.unique_id()].begin_stream(sub, profile);
+										}
+									}
+									if (ImGui::IsItemHovered())
+									{
+										ImGui::SetTooltip("Start streaming data from this sensor");
+									}
+								}
+								else
+								{
+									ImGui::TextDisabled(u8"  \uf204\noff   ");
+									if (std::any_of(sub->stream_enabled.begin(), sub->stream_enabled.end(), [](std::pair<int, bool> const& s) { return s.second; }))
+									{
+										if (ImGui::IsItemHovered())
+										{
+											ImGui::SetTooltip("Selected configuration (FPS, Resolution) is not supported");
+										}
+									}
+									else
+									{
+										if (ImGui::IsItemHovered())
+										{
+											ImGui::SetTooltip("No stream selected");
+										}
+									}
 
-                            }
-                        }
-                        else
-                        {
-                            label = to_string() << u8"  \uf205\n    on##" << dev_model.id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME);
-                            ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
-                            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
+								}
+							}
+							else
+							{
+								label = to_string() << u8"  \uf205\n    on##" << dev_model.id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME);
+								ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
+								ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
 
-                            if (ImGui::Button(label.c_str(), { 30,30 }))
-                            {
-                                sub->stop();
+								if (ImGui::Button(label.c_str(), { 30,30 }))
+								{
+									sub->stop();
 
-                                if (!std::any_of(dev_model.subdevices.begin(), dev_model.subdevices.end(),
-                                    [](const std::shared_ptr<subdevice_model>& sm)
-                                {
-                                    return sm->streaming;
-                                }))
-                                {
-                                    stop_recording = true;
-                                }
-                            }
-                            if (ImGui::IsItemHovered())
-                            {
-                                ImGui::SetTooltip("Stop streaming data from selected sub-device");
-                            }
-                        }
-                    }
-                    catch (const error& e)
-                    {
-                        error_message = error_to_string(e);
-                    }
-                    catch (const std::exception& e)
-                    {
-                        error_message = e.what();
-                    }
+									if (!std::any_of(dev_model.subdevices.begin(), dev_model.subdevices.end(),
+										[](const std::shared_ptr<subdevice_model>& sm)
+									{
+										return sm->streaming;
+									}))
+									{
+										stop_recording = true;
+									}
+								}
+								if (ImGui::IsItemHovered())
+								{
+									ImGui::SetTooltip("Stop streaming data from selected sub-device");
+								}
+							}
+						}
+						catch (const error& e)
+						{
+							error_message = error_to_string(e);
+						}
+						catch (const std::exception& e)
+						{
+							error_message = e.what();
+						}
 
-                    ImGui::PopStyleColor(5);
-                    ImGui::PopFont();
-                }
+						ImGui::PopStyleColor(5);
+						ImGui::PopFont();
 
-                if (dev_model.is_recording && stop_recording)
-                {
-                    dev_model.stop_recording();
-                    for (auto&& sub : dev_model.subdevices)
-                    {
-                        //TODO: Fix case where sensor X recorded stream 0, then stopped, and then started recording stream 1 (need 2 sensors for this to happen)
-                        if (sub->is_selected_combination_supported())
-                        {
-                            auto profiles = sub->get_selected_profiles();
-                            for (auto&& profile : profiles)
-                            {
-                                viewer_model.streams[profile.unique_id()].dev = sub;
-                            }
-                        }
-                    }
-                }
-            }
+					}
+
+					if (dev_model.is_recording && stop_recording)
+					{
+						dev_model.stop_recording();
+						for (auto&& sub : dev_model.subdevices)
+						{
+							//TODO: Fix case where sensor X recorded stream 0, then stopped, and then started recording stream 1 (need 2 sensors for this to happen)
+							if (sub->is_selected_combination_supported())
+							{
+								auto profiles = sub->get_selected_profiles();
+								for (auto&& profile : profiles)
+								{
+									viewer_model.streams[profile.unique_id()].dev = sub;
+								}
+							}
+						}
+					}
+				}
+			}
         }
         else
         {

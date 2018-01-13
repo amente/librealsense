@@ -690,6 +690,9 @@ namespace rs2
                     stream_enabled[profile.unique_id()] = true;
                 }
 
+				//Ovveride to enable all streams
+				stream_enabled[profile.unique_id()] = true;
+
                 profiles.push_back(profile);
             }
 
@@ -742,7 +745,8 @@ namespace rs2
             { std::string("0AD3") ,std::string("0B07") }) &&
                 val_in_range(std::string(s->get_info(RS2_CAMERA_INFO_NAME)), { std::string("RGB Camera") }));
             // Limit Realtec sensor default
-            auto constrain = (rgb_rotation_btn) ? std::make_pair(640, 480) : std::make_pair(0, 0);
+            //auto constrain = (rgb_rotation_btn) ? std::make_pair(640, 480) : std::make_pair(0, 0);
+			auto constrain = std::make_pair(640, 480);
             get_default_selection_index(res_values, constrain, &selection_index);
             ui.selected_res_id = selection_index;
 
@@ -3681,14 +3685,18 @@ namespace rs2
         {
             label = to_string() << u8" \uf03d";
             ImGui::Text("%s", label.c_str());
+
         }
+
+
         ImGui::SameLine();
 
         label = to_string() << dev.get_info(RS2_CAMERA_INFO_NAME);
         ImGui::Text("%s", label.c_str());
 
         ImGui::Columns(1);
-        ImGui::SetCursorPos({ panel_width - 50, pos.y + 8 + (header_h - panel_height) / 2 });
+		
+        ImGui::SetCursorPos({ panel_width - 100, pos.y + 8 + (header_h - panel_height) / 2 });
 
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, white);
         ImGui::PushStyleColor(ImGuiCol_PopupBg, almost_white_bg);
@@ -3697,7 +3705,69 @@ namespace rs2
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5, 5));
 
-        ImGui::PushFont(font2);
+        
+		std::string big_green_button_label = to_string() << u8"  \uf204\nrec##" << id;
+
+		if (!is_recording && !dev.is<playback>())
+		{
+			if (ImGui::Button(big_green_button_label.c_str(), { 33, 30 }))
+			{
+				//mGui::PushStyleColor(ImGuiCol_Text, redish);
+				//ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
+
+				auto ret = file_dialog_open(save_file, "ROS-bag\0*.bag\0", NULL, NULL);
+
+				if (ret)
+				{
+					std::string filename = ret;
+					if (!ends_with(to_lower(filename), ".bag")) filename += ".bag";
+
+					for (auto&& sub : subdevices)
+					{
+						if (sub->streaming)
+							sub->stop();
+					}
+
+					start_recording(filename, error_message);
+
+					for (auto&& sub : subdevices)
+					{
+						auto profiles = sub->get_selected_profiles();
+						sub->play(profiles);
+
+						for (auto&& profile : profiles)
+						{
+							viewer.streams[profile.unique_id()].begin_stream(sub, profile);
+						}
+					}
+
+				}
+			}
+		}
+		else if(!dev.is<playback>())
+		{
+			big_green_button_label = to_string() << u8"  \uf205\nstop##" << id;
+			
+			if (ImGui::Button(big_green_button_label.c_str(), { 33,30 }))
+			{
+				//ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
+				//ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
+
+				for (auto&& sub : subdevices)
+				{
+					if (sub->streaming)
+						sub->stop();
+				}
+
+				stop_recording();
+			}
+		}
+
+		//ImGui::PopStyleColor(2);
+
+		ImGui::PushFont(font2);
+		ImGui::SameLine();
+
         label = to_string() << "device_menu" << id;
         std::string settings_button_name = to_string() << u8"\uf0c9##" << id;
 
